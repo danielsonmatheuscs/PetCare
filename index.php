@@ -1,16 +1,20 @@
 <?php
+require_once __DIR__ . '/config/auth.php';
+petcare_require_login();
 require_once __DIR__.'/config/db.php';
 $pageTitle='Dashboard';
 $animais = (int)$pdo->query("SELECT COUNT(*) FROM animais")->fetchColumn();
-$hoje = $pdo->query("SELECT COUNT(*) FROM agendamentos WHERE data_agendamento=CURDATE()")->fetchColumn();
-$atendimento = $pdo->query("SELECT COUNT(*) FROM agendamentos WHERE data_agendamento=CURDATE() AND status='Em atendimento'")->fetchColumn();
-$prontos = $pdo->query("SELECT COUNT(*) FROM agendamentos WHERE data_agendamento=CURDATE() AND status='Pronto'")->fetchColumn();
-$agenda = $pdo->query("SELECT a.*, an.nome animal, t.nome tutor FROM agendamentos a JOIN animais an ON an.id=a.animal_id JOIN tutores t ON t.id=an.tutor_id WHERE a.data_agendamento=CURDATE() ORDER BY a.hora")->fetchAll();
-$servicos = $pdo->query("SELECT servico, COUNT(*) total FROM agendamentos WHERE data_agendamento=CURDATE() GROUP BY servico")->fetchAll();
-$totais=['Banho'=>0,'Tosa'=>0,'Banho e Tosa'=>0];
+$hoje = $pdo->query("SELECT COUNT(*) FROM agendamentos WHERE data_agendamento=CURRENT_DATE")->fetchColumn();
+$atendimento = $pdo->query("SELECT COUNT(*) FROM agendamentos WHERE data_agendamento=CURRENT_DATE AND status='Em atendimento'")->fetchColumn();
+$prontos = $pdo->query("SELECT COUNT(*) FROM agendamentos WHERE data_agendamento=CURRENT_DATE AND status='Pronto'")->fetchColumn();
+$agenda = $pdo->query("SELECT a.*, an.nome animal, t.nome tutor FROM agendamentos a JOIN animais an ON an.id=a.animal_id JOIN tutores t ON t.id=an.tutor_id WHERE a.data_agendamento=CURRENT_DATE ORDER BY a.hora")->fetchAll();
+$servicos = $pdo->query("SELECT servico, COUNT(*) total FROM agendamentos WHERE data_agendamento=CURRENT_DATE GROUP BY servico")->fetchAll();
+$totais=[];
 foreach($servicos as $s) $totais[$s['servico']] = (int)$s['total'];
 $totalHoje=array_sum($totais);
 $preenchido=min(100,$totalHoje>0 ? round($totalHoje/20*100) : 0);
+$concluidos=(int)$pdo->query("SELECT COUNT(*) FROM agendamentos WHERE data_agendamento=CURRENT_DATE AND status='Concluído'")->fetchColumn();
+$servicosConcluidos=(int)$pdo->query("SELECT COUNT(*) FROM atendimentos_servicos WHERE concluido_em >= CURRENT_DATE AND concluido_em < CURRENT_DATE + INTERVAL 1 DAY")->fetchColumn();
 require __DIR__.'/includes/header.php';
 ?>
 <header class="topbar">
@@ -18,7 +22,7 @@ require __DIR__.'/includes/header.php';
         <h1>Dashboard</h1>
         <p>Visão geral do atendimento de hoje</p>
     </div>
-    <a class="btn primary" href="/PetCare/agendamentos/novo.php">+ Novo agendamento</a>
+    <a class="btn primary" href="<?= PETCARE_BASE_URL ?>/agendamentos/novo.php">+ Novo agendamento</a>
 </header>
 <section class="cards">
     <div class="card stat">
@@ -57,7 +61,7 @@ require __DIR__.'/includes/header.php';
                 <h2>Agenda de hoje</h2>
                 <p><?= date('d/m/Y') ?></p>
             </div>
-            <a href="/PetCare/agendamentos/index.php">Ver todos</a>
+            <a href="<?= PETCARE_BASE_URL ?>/agendamentos/index.php">Ver todos</a>
         </div>
         <div class="appointment-list">
             <?php if(!$agenda): ?>
@@ -83,18 +87,9 @@ require __DIR__.'/includes/header.php';
                 <p>Agendamentos de hoje</p>
             </div>
         </div>
-        <div class="service-row">
-            <span>🛁 Banho</span>
-            <strong><?=$totais['Banho']?></strong>
-        </div>
-        <div class="service-row">
-            <span>✂️ Tosa</span>
-            <strong><?=$totais['Tosa']?></strong>
-        </div>
-        <div class="service-row">
-            <span>🛁✂️ Banho e Tosa</span>
-            <strong><?=$totais['Banho e Tosa']?></strong>
-        </div>
+        <?php foreach($totais as $nome=>$total):?><div class="service-row"><span><?=htmlspecialchars($nome)?></span><strong><?=$total?></strong></div><?php endforeach;?>
+        <div class="service-row"><span>Atendimentos concluídos hoje</span><strong><?=$concluidos?></strong></div>
+        <div class="service-row"><span>Serviços registrados hoje</span><strong><?=$servicosConcluidos?></strong></div>
         <div class="progress-bar">
             <span style="width:<?=$preenchido?>%"></span>
         </div>
@@ -109,22 +104,22 @@ require __DIR__.'/includes/header.php';
         </div>
     </div>
     <div class="quick-grid">
-        <a href="/PetCare/tutores/novo.php" class="quick">
+        <a href="<?= PETCARE_BASE_URL ?>/tutores/novo.php" class="quick">
             <span>👤</span>
             <strong>Cadastrar tutor</strong>
             <small>Dados e contato do responsável</small>
         </a>
-        <a href="/PetCare/animais/novo.php" class="quick">
+        <a href="<?= PETCARE_BASE_URL ?>/animais/novo.php" class="quick">
             <span>🐶</span>
             <strong>Cadastrar animal</strong>
             <small>Raça, cor e porte</small>
         </a>
-        <a href="/PetCare/agendamentos/novo.php" class="quick">
+        <a href="<?= PETCARE_BASE_URL ?>/agendamentos/novo.php" class="quick">
             <span>📅</span>
             <strong>Agendar serviço</strong>
-            <small>Banho, tosa ou ambos</small>
+            <small>Serviços definidos pela empresa</small>
         </a>
-        <a href="/PetCare/planos/index.php" class="quick">
+        <a href="<?= PETCARE_BASE_URL ?>/planos/index.php" class="quick">
             <span>💳</span>
             <strong>Ver planos</strong>
             <small>Planos e benefícios</small>
